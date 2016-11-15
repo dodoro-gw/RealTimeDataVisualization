@@ -14,10 +14,22 @@ const handler = (req, res) => {
 const app = require('http').createServer(handler);
 const io = require('socket.io')(app); //create socket connection to front end
 
-app.listen(8080);
+app.listen(8080, () =>{
+  setInterval(drawUniform, 600);
+});
 
+time = 1476000000;
+function drawUniform(){
+  value = Math.random();
+  flag = 0;
+  if(value > 0.99 || value < 0.01) flag = 1;  //anomalies
+  io.emit('newData', time + "," + value + "," + flag);
+  time = time+1;
+}
 
-//create socket server and listen port 9999 to receive data
+//In real cases, we often receive data from other source.
+//For example, we can create a socket server and listen some port (e.g., 9999) to receive data
+/*
 const server = net.createServer((c) => {
     console.log('client connected');
     c.setEncoding('utf-8');
@@ -36,3 +48,4 @@ server.on('error', (err) => {
 server.listen(9999, () => {
     console.log('server bound');
 });
+*/
