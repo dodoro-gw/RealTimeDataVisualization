@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+			<style>
+				.axis path,
+                .axis line{
+                    fill:none;
+                    stroke:black;
+                    shape-rendering: crispEdges;
+                }
+                .axis text{
+                    font-family: sans-serif;
+                    font-size: 12px;
+                }
+            </style>
+        </meta>
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="row">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <div class="header" style="border-bottom: 1px solid #e5e5e5; margin-bottom: 30px">
+                        <h2>Real Time Data (Bar Chart Example)</h2>
+                </div>
+            <h3>Current Detecting Time: <span id='time'>  </span></h3>
+            <svg width="960" height="500"></svg>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+		<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+        <script src="http://d3js.org/d3.v4.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+        <script>
+
+            //Initialize rtData, add some dummy data. t represents timestamp, v represents value
+            //flag is the label of the data. For example, in the case of anomaly detection, flag can be used to represent if the value is an anomaly or not.
+            var t = 1297110663, v = 0.0, f = 0, rtData = d3.range(60).map(next);
+            function next(){
+                return{
+                    time: ++t,
+                    value: v = 0.0,
+                    flag: f = 0
+                }
+            }
+
+            //Get streaming data
+            function streaming(parsed){
+                return{
+                    time: parsed[0],
+                    value: v = parsed[1],
+                    flag: f = parsed[2]
+                }
+            }
+
+            //Prepare to draw bars
+            var svg = d3.select("svg"),
+                margin = {top: 20, right: 20, bottom: 30, left: 40},
+                width = +svg.attr("width") - margin.left - margin.right,
+                height = +svg.attr("height") - margin.top - margin.bottom;
+
+            var barPadding = 1;
+            var w = 15; //bar width
+
+            var xScale = d3.scaleLinear()
+            .domain([0,1])
+            .range([0, w]);
+            var yScale = d3.scaleLinear()
+            .domain([0, 1])
+            .rangeRound([height, 0]);
+
+            var g = svg.append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            //Draw bars. So far there does not exist actual data.
+            g.selectAll("rect")
+            .data(rtData, function(d){return d.time;})
+            .enter()
+            .append("rect")
+            .attr("width", w-barPadding)
+            .attr("height", function(d){
+                return height-yScale(d.value);
+            })
+            .attr("x", function(d, i){
+                return xScale(i);
+            })
+            .attr("y", function(d){
+                return yScale(d.value);
+            })
+            .attr("fill", "pink");
+
+            //add y axis
+            g.append("g")
+            .attr("class", "axis")
+            .call(d3.axisLeft(yScale).ticks(10));
+
+            //Create socket connection to receive data from server end
+            var socket = io('http://localhost:8080');
+            //When we get a new data named newData, we delete the oldest data and add this new data in.
+            socket.on('newData', function(newData) {
+              var parsed = newData.split(",");
+              var date = new Date(parsed[0]*1000);
+              document.getElementById('time').innerHTML = date.toString();
+              rtData.shift();
+              rtData.push(streaming(parsed));
+              redraw(); //This is the main logic to update the graph
+            });
+
+            function redraw(){
+                var rect = g.selectAll("rect").data(rtData, function(d){return d.time;});
+
+                //enter (add a bar on the right)
+                rect.enter().insert("rect")
+                .attr("x", function(d, i) {return xScale(i+1);})
+                .attr("y", function(d) {
+                    return yScale(d.value);
+                })
+                .attr("width", w-barPadding)
+                .attr("height", function(d){
+                    return height-yScale(d.value);
+                })
+                .attr("fill", function(d){
+                    //Bar fills with red when it is detected as an anomaly.
+                    if(d.flag == 1){
+                        return "red";
+                    }else if(d.flag == 0){
+                        return "green";
+                    }else{
+                        return "pink";
+                    }
+                })
+                .transition()
+                .duration(500)
+                .attr("x", function(d, i) {return xScale(i);});
+
+                //update (all bars shift left)
+                rect.transition()
+                .duration(500)
+                .attr("x", function(d, i) {return xScale(i);});
+
+                //exit (remove a bar on the left)
+                rect.exit().transition()
+                .duration(500)
+                .attr("x", function(d, i) {return xScale(i-1);})
+                .remove();
+            }
+        </script>
+    </body>
+</html>
