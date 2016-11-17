@@ -1,4 +1,4 @@
-## An Simple Example of Streaming Data Real Time Visualization
+## A Simple Example of Streaming Data Visualization in Real Time
 
 `realtime.js`: server-end code. It simulates streaming data: every 0.6 second, a new data point is sent to the front end via socket connection. I use node.js.  
 
